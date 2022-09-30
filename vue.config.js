@@ -36,7 +36,17 @@ module.exports = {
       warnings: false,
       errors: true
     },
-    before: require('./mock/mock-server.js')
+    // before: require('./mock/mock-server.js')
+    proxy: {
+      '/api': {
+        target: 'https://vue-admin-api.q6q.cc/api/private/v1/',
+        ws: true,
+        changeOrigin: true,
+        pathRewrite: {
+          '^/api': '' // 替换掉代理地址中的 /api
+        },
+      },
+    }
   },
   configureWebpack: {
     // provide the app's title in webpack's name field, so that

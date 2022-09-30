@@ -1,97 +1,128 @@
-import { login, logout, getInfo } from '@/api/user'
-import { getToken, setToken, removeToken } from '@/utils/auth'
-import { resetRouter } from '@/router'
+import {
+  requestLoginUser,
+  requestUserList,
+  requestUserState,
+  deleteUserInfo,
+  requestAddUser,
+  updateUserInfo,
+  reqAssignUserRole,
+} from "@/api/user";
+import { getToken, setToken, removeToken } from "@/utils/auth";
+import { removeStorage, setStorage } from "@/utils/storage";
+import { resetRouter } from "@/router";
 
 const getDefaultState = () => {
   return {
     token: getToken(),
-    name: '',
-    avatar: ''
-  }
-}
+    name: "",
+    avatar:
+      "https://q1.qlogo.cn/g?b=qq&nk=1724417279@qq.com&s=100&q6qcc=qiangzai",
+    pagenum: 1,
+    pagesize: 10,
+    users: [],
+    total: 0,
+  };
+};
 
-const state = getDefaultState()
+const state = getDefaultState();
 
 const mutations = {
   RESET_STATE: (state) => {
-    Object.assign(state, getDefaultState())
+    Object.assign(state, getDefaultState());
   },
   SET_TOKEN: (state, token) => {
-    state.token = token
+    state.token = token;
   },
   SET_NAME: (state, name) => {
-    state.name = name
+    state.name = name;
   },
-  SET_AVATAR: (state, avatar) => {
-    state.avatar = avatar
-  }
-}
+  GET_USERLIST: (state, data) => {
+    for (const key in data) {
+      if (Object.hasOwnProperty.call(data, key)) {
+        state[key] = data[key];
+      }
+    }
+  },
+  CHANGE_STATE: (state, data) => {
+    state.users = state.users.map((item, index, v) => {
+      if (item.id === data) {
+        v.mg_state = !v.mg_state;
+      }
+      return item;
+    });
+  },
+};
 
 const actions = {
-  // user login
-  login({ commit }, userInfo) {
-    const { username, password } = userInfo
-    return new Promise((resolve, reject) => {
-      login({ username: username.trim(), password: password }).then(response => {
-        const { data } = response
-        commit('SET_TOKEN', data.token)
-        setToken(data.token)
-        resolve()
-      }).catch(error => {
-        reject(error)
-      })
-    })
+  // 用户登录
+  async userLogin({ commit }, userInfo) {
+    const { data, meta } = await requestLoginUser(userInfo);
+    if (meta.status === 200) {
+      const { id, rid, username, mobile, email, token } = data;
+      commit("SET_TOKEN", token);
+      commit("SET_NAME", username);
+      setToken(token);
+      setStorage(
+        "userInfo",
+        JSON.stringify({ id, rid, username, mobile, email })
+      );
+      return "ok";
+    }
+  },
+  // 退出登录
+  logoutUser({ commit }) {
+    commit("RESET_STATE");
+    removeToken();
+    removeStorage("userInfo");
   },
 
-  // get user info
-  getInfo({ commit, state }) {
-    return new Promise((resolve, reject) => {
-      getInfo(state.token).then(response => {
-        const { data } = response
-
-        if (!data) {
-          return reject('Verification failed, please Login again.')
-        }
-
-        const { name, avatar } = data
-
-        commit('SET_NAME', name)
-        commit('SET_AVATAR', avatar)
-        resolve(data)
-      }).catch(error => {
-        reject(error)
-      })
-    })
+  // 获取用户列表
+  async getUserList({ commit }, objData) {
+    const { data, meta } = await requestUserList(objData);
+    if (meta.status === 200) {
+      commit("GET_USERLIST", data);
+    }
   },
-
-  // user logout
-  logout({ commit, state }) {
-    return new Promise((resolve, reject) => {
-      logout(state.token).then(() => {
-        removeToken() // must remove  token  first
-        resetRouter()
-        commit('RESET_STATE')
-        resolve()
-      }).catch(error => {
-        reject(error)
-      })
-    })
+  // 改变用户状态
+  async reqChangeUserState({ commit }, objData) {
+    const { meta, data } = await requestUserState(objData);
+    if (meta.status === 200) {
+      commit("CHANGE_STATE", data.id);
+    }
   },
-
-  // remove token
-  resetToken({ commit }) {
-    return new Promise(resolve => {
-      removeToken() // must remove  token  first
-      commit('RESET_STATE')
-      resolve()
-    })
-  }
-}
+  // 删除用户
+  async reqDeleteUserInfo({ commit, dispatch }, id) {
+    const { meta } = await deleteUserInfo(id);
+    if (meta.status === 200) {
+      return "ok";
+    }
+  },
+  // 添加用户
+  async reqAddUser({ commit, dispatch }, formData) {
+    const { data, meta } = await requestAddUser(formData);
+    if (meta.status === 200 || meta.status === 201) {
+      return "ok";
+    }
+  },
+  // 更新用户信息
+  async reqUpDateUserInfo({ commit }, formData) {
+    const { meta } = await updateUserInfo(formData);
+    if (meta.status === 200) {
+      return "ok";
+    }
+  },
+  // 分配用户角色
+  async reqUserRole({}, formData) {
+    const { meta } = await reqAssignUserRole(formData);
+    if (meta.status === 200) {
+      return "ok";
+    }
+  },
+};
 
 export default {
   namespaced: true,
   state,
   mutations,
-  actions
-}
-
+  actions,
+};
